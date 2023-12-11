@@ -1,7 +1,9 @@
 package kr.smartisoft.demo.MonitorInfo.controller;
 
 import com.sun.management.OperatingSystemMXBean;
-import kr.smartisoft.demo.MonitorInfo.entity.GPUItem;
+import kr.smartisoft.demo.MonitorInfo.entity.Performance;
+import kr.smartisoft.demo.MonitorInfo.service.PerformanceService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,89 +19,95 @@ import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping
-public class CPUController {
+public class PerformanceController {
+
+    private Performance performance = new Performance();
+
+    @Autowired
+    PerformanceService performanceService;
 
     @GetMapping("/info")
-    public void CPUInformation() throws InterruptedException {
-        //getUsingDisk();
-        //getUsingCPUAndMemmory();
-        GPUMonitor();
+    public void CPUInformation(){
 
+        getUsingCPUAndMemmory();
+        getUsingDisk();
+        getUsingGPU();
+
+        System.out.println(performance);
     }
 
-    private void GPUMonitor() {
-        try {
-            GPUItem gpuItem = getGPUInfo();
-            System.out.println(gpuItem);
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public GPUItem getGPUInfo() throws IOException, InterruptedException {
-        GPUItem item = new GPUItem();
+    public void getUsingGPU(){
 
         ProcessBuilder processBuilder = new ProcessBuilder("\"nvidia-smi\", \"--query-gpu=gpu_name,gpu_bus_id,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.used,power.draw,power.limit,fan.speed\", \"--format=csv,noheader,nounits\"");
-        Process process = processBuilder.start();
+        Process process = null;
+
+        try {
+            process = processBuilder.start();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
-            int gpuIndex = 0;
 
             while ((line = reader.readLine()) != null) {
                 String[] tokens = line.split(", ");
 
-                item.setGpuName(tokens[0]);
+                performance.setGpuName(tokens[0]);
 
-                item.setGpuBusId(tokens[1]);
+                performance.setGpuBusId(tokens[1]);
 
-                item.setTemperatureGPU(Integer.parseInt(tokens[2]));
+                performance.setTemperatureGPU(Integer.parseInt(tokens[2]));
 
-                item.setUtilizationGPU(Integer.parseInt(tokens[3]));
+                performance.setUtilizationGPU(Integer.parseInt(tokens[3]));
 
                 if (tokens[4].equals("[Not Supported]")) {
-                    item.setUtilizationMemory(-1);
+                    performance.setUtilizationMemory(-1);
                 } else {
-                    item.setUtilizationMemory(Integer.parseInt(tokens[4]));
+                    performance.setUtilizationMemory(Integer.parseInt(tokens[4]));
                 }
 
                 if (tokens[5].equals("[Not Supported]")) {
-                    item.setMemboryTotal(-1);
+                    performance.setTotalMemory(-1);
                 } else {
-                    item.setMemboryTotal(Integer.parseInt(tokens[5]));
+                    performance.setTotalMemory(Integer.parseInt(tokens[5]));
                 }
 
                 if (tokens[6].equals("[Not Supported]")) {
-                    item.setMemoryUsed(-1);
+                    performance.setUsedMemory(-1);
                 } else {
-                    item.setMemoryUsed(Integer.parseInt(tokens[6]));
+                    performance.setUsedMemory(Integer.parseInt(tokens[6]));
                 }
 
                 if (tokens[7].equals("[Not Supported]")) {
-                    item.setPowerDraw(-1);
+                    performance.setPowerDraw(-1);
                 } else {
-                    item.setPowerDraw(Double.parseDouble(tokens[7]));
+                    performance.setPowerDraw(Double.parseDouble(tokens[7]));
                 }
 
                 if (tokens[8].equals("[Not Supported]")) {
-                    item.setPowerLimit(-1);
+                    performance.setPowerLimit(-1);
                 } else {
-                    item.setPowerLimit(Double.parseDouble(tokens[8]));
+                    performance.setPowerLimit(Double.parseDouble(tokens[8]));
                 }
 
                 if (tokens[9].equals("[Not Supported]")) {
-                    item.setFanSpeed(-1);
+                    performance.setFanSpeed(-1);
                 } else {
-                    item.setFanSpeed(Integer.parseInt(tokens[9]));
+                    performance.setFanSpeed(Integer.parseInt(tokens[9]));
                 }
 
-                gpuIndex++;
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
-        process.waitFor();
+        try {
+            process.waitFor();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
 
-        return item;
     }
 
     private void getUsingDisk() {
@@ -113,6 +121,10 @@ public class CPUController {
         System.out.println("전체 디스크 용량 : " + Math.ceil(totalSize) + " GB");
         System.out.println("남은 사용 용량 : " + Math.ceil(freeSize) + " GB");
         System.out.println("사용 용량 : " + Math.ceil(useSize) + " GB");
+
+        performance.setTotalDiskSize(totalSize);
+        performance.setUseDiskSize(useSize);
+        performance.setFreeDiskSize(freeSize);
     }
 
     private void getUsingCPUAndMemmory() {
@@ -122,13 +134,10 @@ public class CPUController {
         long prevCpuTime = osBean.getProcessCpuTime();
 
         System.out.println("***********************************************************");
-
         // 전체 시스템에 대한 "최근 CPU 사용량"을 반환합니다
         System.out.println("CPU 이용률 : " + String.format("%.2f", osBean.getSystemCpuLoad() * 100));
-
         // 사용 가능한 메모리 총량 반환
         System.out.println("사용 가능한 메모리 : " + String.format("%.2f", (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024));
-
         // 메모리 총량(바이트) 반환
         System.out.println("총 메모리 : " + String.format("%.2f", (double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024));
 
@@ -146,7 +155,9 @@ public class CPUController {
         // 이전 CPU 시간 업데이트
         prevCpuTime = currCpuTime;
 
-
+        performance.setUsageCPU(Double.parseDouble(String.format("%.2f", osBean.getSystemCpuLoad() * 100)));
+        performance.setFreeMemorySize(Double.parseDouble(String.format("%.2f", (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024)));
+        performance.setTotalMemorySize(Double.parseDouble(String.format("%.2f", (double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024)));
     }
 
 
