@@ -1,8 +1,8 @@
-package kr.smartisoft.demo.MonitorInfo.controller;
+package kr.smartisoft.demo.Perfomance.controller;
 
 import com.sun.management.OperatingSystemMXBean;
-import kr.smartisoft.demo.MonitorInfo.entity.Performance;
-import kr.smartisoft.demo.MonitorInfo.service.PerformanceService;
+import kr.smartisoft.demo.Perfomance.entity.Performance;
+import kr.smartisoft.demo.Perfomance.service.PerformanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,27 +21,29 @@ import java.time.format.DateTimeFormatter;
 @RequestMapping
 public class PerformanceController {
 
-    private Performance performance = new Performance();
-
     @Autowired
     PerformanceService performanceService;
 
     @GetMapping("/info")
-    public void CPUInformation(){
-
-        getUsingCPUAndMemmory();
-        getUsingDisk();
-        getUsingGPU();
-
-        System.out.println(performance);
+    public void CPUInformation() {
+        //Performance performance = getPerformance();
+        //performanceService.savePerformance(performance);
+        System.out.println(performanceService.getPerformance(2));
     }
 
-    public void getUsingGPU(){
+    private Performance getPerformance() {
 
+        Performance performance = new Performance();
+
+        // 테스트 서버 이름 : 1
+        performance.setServerName(1);
+
+        // GPU 정보 가져오기
         ProcessBuilder processBuilder = new ProcessBuilder("\"nvidia-smi\", \"--query-gpu=gpu_name,gpu_bus_id,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.used,power.draw,power.limit,fan.speed\", \"--format=csv,noheader,nounits\"");
         Process process = null;
 
         try {
+            // processBuilder 참조
             process = processBuilder.start();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -79,6 +81,8 @@ public class PerformanceController {
                     performance.setUsedMemory(Integer.parseInt(tokens[6]));
                 }
 
+                performance.setFreeMemory(performance.getTotalMemory() - performance.getUsedMemory());
+
                 if (tokens[7].equals("[Not Supported]")) {
                     performance.setPowerDraw(-1);
                 } else {
@@ -101,33 +105,18 @@ public class PerformanceController {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
         try {
+            // 자식 프로세스가 종료 될때까지 대기
             process.waitFor();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
 
-    }
+        System.out.println("===================================================]");
+        System.out.println(performance.toString());
+        System.out.println("===================================================]");
 
-    private void getUsingDisk() {
-        double totalSize, freeSize, useSize;
-        File root = new File("C:\\");
-
-        totalSize = root.getTotalSpace() / Math.pow(1024, 3);
-        useSize = root.getUsableSpace() / Math.pow(1024, 3);
-        freeSize = totalSize - useSize;
-
-        System.out.println("전체 디스크 용량 : " + Math.ceil(totalSize) + " GB");
-        System.out.println("남은 사용 용량 : " + Math.ceil(freeSize) + " GB");
-        System.out.println("사용 용량 : " + Math.ceil(useSize) + " GB");
-
-        performance.setTotalDiskSize(totalSize);
-        performance.setUseDiskSize(useSize);
-        performance.setFreeDiskSize(freeSize);
-    }
-
-    private void getUsingCPUAndMemmory() {
+        // CPU & Memory 정보 가져오기
         OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
 
         // 이전 CPU 시간
@@ -140,6 +129,9 @@ public class PerformanceController {
         System.out.println("사용 가능한 메모리 : " + String.format("%.2f", (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024));
         // 메모리 총량(바이트) 반환
         System.out.println("총 메모리 : " + String.format("%.2f", (double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024));
+
+        System.out.println("사용중 메모리 : " + String.format("%.2f", ((double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024) - (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024));
+
 
         // 현재 시간 가져오기 (한국 시간으로 변환)
         LocalDateTime currentTime = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
@@ -158,6 +150,25 @@ public class PerformanceController {
         performance.setUsageCPU(Double.parseDouble(String.format("%.2f", osBean.getSystemCpuLoad() * 100)));
         performance.setFreeMemorySize(Double.parseDouble(String.format("%.2f", (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024)));
         performance.setTotalMemorySize(Double.parseDouble(String.format("%.2f", (double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024)));
+        performance.setUseMemorySize(Double.parseDouble(String.format("%.2f", ((double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024) - (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024)));
+
+        // Disk 정보 가져오기
+        double totalSize, freeSize, useSize;
+        File root = new File("C:\\");
+
+        totalSize = root.getTotalSpace() / Math.pow(1024, 3);
+        useSize = root.getUsableSpace() / Math.pow(1024, 3);
+        freeSize = totalSize - useSize;
+
+        System.out.println("전체 디스크 용량 : " + Math.ceil(totalSize) + " GB");
+        System.out.println("사용중인 디스트 용량 : " + Math.ceil(useSize) + " GB");
+        System.out.println("남은 디스크 용량 : " + Math.ceil(freeSize) + " GB");
+
+        performance.setTotalDiskSize(totalSize);
+        performance.setUseDiskSize(useSize);
+        performance.setFreeDiskSize(freeSize);
+
+        return performance;
     }
 
 
