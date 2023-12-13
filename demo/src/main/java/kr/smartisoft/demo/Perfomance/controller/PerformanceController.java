@@ -4,7 +4,8 @@ import com.sun.management.OperatingSystemMXBean;
 import kr.smartisoft.demo.Perfomance.entity.Performance;
 import kr.smartisoft.demo.Perfomance.service.PerformanceService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,6 +17,7 @@ import java.lang.management.ManagementFactory;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 @RestController
 @RequestMapping
@@ -24,11 +26,21 @@ public class PerformanceController {
     @Autowired
     PerformanceService performanceService;
 
-    @GetMapping("/info")
-    public void CPUInformation() {
-        //Performance performance = getPerformance();
-        //performanceService.savePerformance(performance);
-        System.out.println(performanceService.getPerformance(2));
+    @PostMapping("/info")
+    public Performance CPUInformation(@RequestBody Map<String, Integer> param) throws IOException {
+
+        // cpu / 메모리 / 디스트 / gpu 정보 가져오기
+        Performance performance = getPerformance();
+
+        // 요청 받은 서버 이름 (3 | 4 | 5 | 6)
+        int serverName = param.get("serverName");
+        performance.setServerName(serverName);
+
+        // db에 저장
+        performanceService.savePerformance(performance);
+
+        // 결과 응답
+        return performanceService.getPerformance(serverName);
     }
 
     private Performance getPerformance() {
@@ -112,25 +124,21 @@ public class PerformanceController {
             throw new RuntimeException(e);
         }
 
-        System.out.println("===================================================]");
-        System.out.println(performance.toString());
-        System.out.println("===================================================]");
-
         // CPU & Memory 정보 가져오기
         OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
 
         // 이전 CPU 시간
         long prevCpuTime = osBean.getProcessCpuTime();
 
-        System.out.println("***********************************************************");
-        // 전체 시스템에 대한 "최근 CPU 사용량"을 반환합니다
-        System.out.println("CPU 이용률 : " + String.format("%.2f", osBean.getSystemCpuLoad() * 100));
-        // 사용 가능한 메모리 총량 반환
-        System.out.println("사용 가능한 메모리 : " + String.format("%.2f", (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024));
-        // 메모리 총량(바이트) 반환
-        System.out.println("총 메모리 : " + String.format("%.2f", (double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024));
-
-        System.out.println("사용중 메모리 : " + String.format("%.2f", ((double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024) - (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024));
+//        System.out.println("***********************************************************");
+//        // 전체 시스템에 대한 "최근 CPU 사용량"을 반환합니다
+//        System.out.println("CPU 이용률 : " + String.format("%.2f", osBean.getSystemCpuLoad() * 100));
+//        // 사용 가능한 메모리 총량 반환
+//        System.out.println("사용 가능한 메모리 : " + String.format("%.2f", (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024));
+//        // 메모리 총량(바이트) 반환
+//        System.out.println("총 메모리 : " + String.format("%.2f", (double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024));
+//
+//        System.out.println("사용중 메모리 : " + String.format("%.2f", ((double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024) - (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024));
 
 
         // 현재 시간 가져오기 (한국 시간으로 변환)
@@ -159,10 +167,6 @@ public class PerformanceController {
         totalSize = root.getTotalSpace() / Math.pow(1024, 3);
         useSize = root.getUsableSpace() / Math.pow(1024, 3);
         freeSize = totalSize - useSize;
-
-        System.out.println("전체 디스크 용량 : " + Math.ceil(totalSize) + " GB");
-        System.out.println("사용중인 디스트 용량 : " + Math.ceil(useSize) + " GB");
-        System.out.println("남은 디스크 용량 : " + Math.ceil(freeSize) + " GB");
 
         performance.setTotalDiskSize(totalSize);
         performance.setUseDiskSize(useSize);
