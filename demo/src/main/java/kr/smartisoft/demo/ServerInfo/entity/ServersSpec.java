@@ -11,18 +11,18 @@ import java.time.LocalDateTime;
 @Setter
 @Entity
 @ToString
-@Table(name = "tbl_performance")
+@Table(name = "tbl_servers_spec")
 @EntityListeners(AuditingEntityListener.class)
-public class Performance {
+public class ServersSpec {
 
     @Id
     @Column(columnDefinition = "INTEGER")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idx; // 기본키
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "server_idx")
-    private Long serverIdx;
+    private Servers servers;
 
     @CreationTimestamp
     @Column(name = "cpu_time")

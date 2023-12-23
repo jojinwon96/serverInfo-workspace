@@ -1,4 +1,4 @@
-package kr.smartisoft.demo.Perfomance.entity;
+package kr.smartisoft.demo.ServerInfo.entity;
 
 import lombok.Getter;
 import lombok.Setter;

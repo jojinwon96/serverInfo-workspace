@@ -1,8 +1,9 @@
 package kr.smartisoft.demo.ServerInfo.controller;
 
 import com.sun.management.OperatingSystemMXBean;
+import kr.smartisoft.demo.ServerInfo.entity.Servers;
 import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
-import kr.smartisoft.demo.ServerInfo.service.PerformanceService;
+import kr.smartisoft.demo.ServerInfo.service.ServerInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -18,17 +19,20 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 @Component
-public class PerformanceController {
+public class ServerInfoController {
 
     @Autowired
-    PerformanceService performanceService;
+    ServerInfoService serverInfoService;
 
     @PostConstruct
     private void setServerInfo(){
 
+        Servers servers = new Servers();
+        servers.setServerName(4);
+
+        serverInfoService.saveServerInfo(servers);
     }
 
-    @Scheduled(fixedRate = 3000)
     private void CPUInformation() {
 
 //        // cpu / 메모리 / 디스트 / gpu 정보 가져오기

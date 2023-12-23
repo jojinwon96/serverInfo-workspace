@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface ServerInfoRepository extends JpaRepository<ServersSpec, Long> {
+public interface ServersSpecRepository extends JpaRepository<ServersSpec, Long> {
 
     @Query(value = "SELECT " +
             "  p.idx" +
