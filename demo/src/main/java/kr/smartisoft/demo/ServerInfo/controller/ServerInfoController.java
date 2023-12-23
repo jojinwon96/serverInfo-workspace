@@ -1,14 +1,13 @@
-package kr.smartisoft.demo.Perfomance.controller;
+package kr.smartisoft.demo.ServerInfo.controller;
 
 import com.sun.management.OperatingSystemMXBean;
-import kr.smartisoft.demo.Perfomance.entity.Performance;
-import kr.smartisoft.demo.Perfomance.service.PerformanceService;
+import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
+import kr.smartisoft.demo.ServerInfo.service.PerformanceService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -17,38 +16,42 @@ import java.lang.management.ManagementFactory;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
 
-@RestController
-@RequestMapping
+@Component
 public class PerformanceController {
 
     @Autowired
     PerformanceService performanceService;
 
-    @PostMapping("/info")
-    public Performance CPUInformation(@RequestBody Map<String, Integer> param) throws IOException {
+    @PostConstruct
+    private void setServerInfo(){
 
-        // cpu / 메모리 / 디스트 / gpu 정보 가져오기
-        Performance performance = getPerformance();
-
-        // 요청 받은 서버 이름 (3 | 4 | 5 | 6)
-        int serverName = param.get("serverName");
-        performance.setServerName(serverName);
-
-        // db에 저장
-        performanceService.savePerformance(performance);
-
-        // 결과 응답
-        return performanceService.getPerformance(serverName);
     }
 
-    private Performance getPerformance() {
+    @Scheduled(fixedRate = 3000)
+    private void CPUInformation() {
 
-        Performance performance = new Performance();
+//        // cpu / 메모리 / 디스트 / gpu 정보 가져오기
+//        Performance performance = getPerformance();
+//
+//        // 요청 받은 서버 이름 (3 | 4 | 5 | 6)
+//        int serverName = 3;
+//        performance.setServerName(serverName);
+//
+//        // db에 저장
+//        performanceService.savePerformance(performance);
+//
+//        System.out.println(performanceService.getPerformance(serverName));
+
+        System.out.println("getPerformance");
+    }
+
+    private ServersSpec getPerformance() {
+
+        ServersSpec performance = new ServersSpec();
 
         // 테스트 서버 이름 : 1
-        performance.setServerName(1);
+//        performance.setServerName(1);
 
         // GPU 정보 가져오기
         ProcessBuilder processBuilder = new ProcessBuilder("\"nvidia-smi\", \"--query-gpu=gpu_name,gpu_bus_id,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.used,power.draw,power.limit,fan.speed\", \"--format=csv,noheader,nounits\"");
@@ -69,48 +72,46 @@ public class PerformanceController {
 
                 performance.setGpuName(tokens[0]);
 
-                performance.setGpuBusId(tokens[1]);
+                performance.setTemperatureGPU(Integer.parseInt(tokens[1]));
 
-                performance.setTemperatureGPU(Integer.parseInt(tokens[2]));
+                performance.setUtilizationGPU(Integer.parseInt(tokens[2]));
 
-                performance.setUtilizationGPU(Integer.parseInt(tokens[3]));
-
-                if (tokens[4].equals("[Not Supported]")) {
+                if (tokens[3].equals("[Not Supported]")) {
                     performance.setUtilizationMemory(-1);
                 } else {
-                    performance.setUtilizationMemory(Integer.parseInt(tokens[4]));
+                    performance.setUtilizationMemory(Integer.parseInt(tokens[3]));
+                }
+
+                if (tokens[4].equals("[Not Supported]")) {
+                    performance.setTotalMemory(-1);
+                } else {
+                    performance.setTotalMemory(Integer.parseInt(tokens[4]));
                 }
 
                 if (tokens[5].equals("[Not Supported]")) {
-                    performance.setTotalMemory(-1);
-                } else {
-                    performance.setTotalMemory(Integer.parseInt(tokens[5]));
-                }
-
-                if (tokens[6].equals("[Not Supported]")) {
                     performance.setUsedMemory(-1);
                 } else {
-                    performance.setUsedMemory(Integer.parseInt(tokens[6]));
+                    performance.setUsedMemory(Integer.parseInt(tokens[5]));
                 }
 
                 performance.setFreeMemory(performance.getTotalMemory() - performance.getUsedMemory());
 
-                if (tokens[7].equals("[Not Supported]")) {
+                if (tokens[6].equals("[Not Supported]")) {
                     performance.setPowerDraw(-1);
                 } else {
-                    performance.setPowerDraw(Double.parseDouble(tokens[7]));
+                    performance.setPowerDraw(Double.parseDouble(tokens[6]));
+                }
+
+                if (tokens[7].equals("[Not Supported]")) {
+                    performance.setPowerLimit(-1);
+                } else {
+                    performance.setPowerLimit(Double.parseDouble(tokens[7]));
                 }
 
                 if (tokens[8].equals("[Not Supported]")) {
-                    performance.setPowerLimit(-1);
-                } else {
-                    performance.setPowerLimit(Double.parseDouble(tokens[8]));
-                }
-
-                if (tokens[9].equals("[Not Supported]")) {
                     performance.setFanSpeed(-1);
                 } else {
-                    performance.setFanSpeed(Integer.parseInt(tokens[9]));
+                    performance.setFanSpeed(Integer.parseInt(tokens[8]));
                 }
 
             }

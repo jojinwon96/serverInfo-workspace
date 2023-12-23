@@ -1,7 +1,7 @@
-package kr.smartisoft.demo.Perfomance.service;
+package kr.smartisoft.demo.ServerInfo.service;
 
-import kr.smartisoft.demo.Perfomance.entity.Performance;
-import kr.smartisoft.demo.Perfomance.repository.PerformanceRepository;
+import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
+import kr.smartisoft.demo.ServerInfo.repository.PerformanceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,11 +11,11 @@ public class PerformanceService {
     @Autowired
     PerformanceRepository performanceRepository;
 
-    public void savePerformance(Performance performance){
+    public void savePerformance(ServersSpec performance){
         performanceRepository.save(performance);
     }
 
-    public Performance getPerformance(int serverName){
+    public ServersSpec getPerformance(int serverName){
         return performanceRepository.findByServerName(serverName);
     }
 }

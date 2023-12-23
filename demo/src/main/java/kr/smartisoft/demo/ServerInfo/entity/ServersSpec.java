@@ -1,4 +1,4 @@
-package kr.smartisoft.demo.Perfomance.entity;
+package kr.smartisoft.demo.ServerInfo.entity;
 
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -20,8 +20,9 @@ public class Performance {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idx; // 기본키
 
-    @Column(name = "server_name")
-    private int serverName; // 서버 이름 (3, 4, 5)
+    @ManyToOne
+    @JoinColumn(name = "server_idx")
+    private Long serverIdx;
 
     @CreationTimestamp
     @Column(name = "cpu_time")
@@ -50,9 +51,6 @@ public class Performance {
 
     @Column(name = "gpu_name")
     private String gpuName; // GPU 이름
-
-    @Column(name = "gpu_bus_id")
-    private String gpuBusId; // PCI bus id
 
     @Column(name = "gpu_temp")
     private int temperatureGPU; // gpu 온도
