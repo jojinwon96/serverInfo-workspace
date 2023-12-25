@@ -1,5 +1,6 @@
 package kr.smartisoft.demo.ServerInfo.entity;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -13,6 +14,7 @@ import javax.persistence.*;
 @ToString
 @Table(name = "tbl_servers")
 @EntityListeners(AuditingEntityListener.class)
+@AllArgsConstructor
 public class Servers {
 
     @Id

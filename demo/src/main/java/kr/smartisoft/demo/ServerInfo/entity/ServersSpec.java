@@ -24,6 +24,9 @@ public class ServersSpec {
     @JoinColumn(name = "server_idx")
     private Servers servers;
 
+    @Transient
+    private int serverName;
+
     @CreationTimestamp
     @Column(name = "cpu_time")
     private LocalDateTime cpuDate; // cpu 현재 시간
