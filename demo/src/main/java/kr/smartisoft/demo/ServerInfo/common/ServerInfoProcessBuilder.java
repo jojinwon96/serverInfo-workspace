@@ -3,6 +3,8 @@ package kr.smartisoft.demo.ServerInfo.common;
 import com.sun.management.OperatingSystemMXBean;
 import kr.smartisoft.demo.ServerInfo.entity.Servers;
 import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
+import org.checkerframework.checker.units.qual.A;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
@@ -10,92 +12,80 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
+import java.nio.file.FileStore;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Component
 public class ServerInfoProcessBuilder {
 
-    private static final String serverSpecCommand = "\"nvidia-smi\", \"--query-gpu=gpu_name,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.used,power.draw,power.limit,fan.speed\", \"--format=csv,noheader,nounits\"";
+    private static final List<String> gpuInfoCommand = Arrays.asList("nvidia-smi", "--query-gpu=gpu_name,memory.total,power.limit", "--format=csv,noheader,nounits");
+    private static final List<String> gpuSpecCommand = Arrays.asList("nvidia-smi", "--query-gpu=temperature.gpu,memory.total,memory.used,power.draw,fan.speed,utilization.gpu,utilization.memory", "--format=csv,noheader,nounits");
 
-    public synchronized List<ServersSpec> getServerSpecList() {
+    @Autowired
+    Servers servers;
 
-        List<ServersSpec> serversSpecList = new ArrayList<>();
+    @Autowired
+    ServersSpec serversSpec;
+
+    public Servers getServersInfo(){
 
         // GPU 정보 가져오기
-        ProcessBuilder processBuilder = new ProcessBuilder(serverSpecCommand);
+        ProcessBuilder processBuilder = new ProcessBuilder(gpuInfoCommand);
 
         Process process = null;
 
         try {
+            // processBuilder 참조
             process = processBuilder.start();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+
             String line;
+            int count = 0;
+
+            servers = cpuAndMemoryInfo();
 
             while ((line = reader.readLine()) != null) {
-                ServersSpec serverSpec = CPUInfo();
-
-                // 테스트
-                serverSpec.setServers(new Servers(1L, 3));
 
                 String[] tokens = line.split(", ");
 
-                serverSpec.setGpuName(tokens[0]);
-
-                serverSpec.setTemperatureGPU(Integer.parseInt(tokens[1]));
-
-                serverSpec.setUtilizationGPU(Integer.parseInt(tokens[2]));
-
-                if (tokens[3].equals("[Not Supported]")) {
-                    serverSpec.setUtilizationMemory(-1);
-                } else {
-                    serverSpec.setUtilizationMemory(Integer.parseInt(tokens[3]));
+                if (count == 0){
+                    servers.setGpu1Name(tokens[0]);
+                    servers.setGpu1TotalMemory(Integer.parseInt(tokens[1]));
+                    servers.setGpu1PowerLimit(Double.parseDouble(tokens[2]));
+                } else if (count == 1){
+                    servers.setGpu2Name(tokens[0]);
+                    servers.setGpu2TotalMemory(Integer.parseInt(tokens[1]));
+                    servers.setGpu2PowerLimit(Double.parseDouble(tokens[2]));
+                } else if (count == 2){
+                    servers.setGpu3Name(tokens[0]);
+                    servers.setGpu3TotalMemory(Integer.parseInt(tokens[1]));
+                    servers.setGpu3PowerLimit(Double.parseDouble(tokens[2]));
+                } else if (count == 3){
+                    servers.setGpu4Name(tokens[0]);
+                    servers.setGpu4TotalMemory(Integer.parseInt(tokens[1]));
+                    servers.setGpu4PowerLimit(Double.parseDouble(tokens[2]));
                 }
 
-                if (tokens[4].equals("[Not Supported]")) {
-                    serverSpec.setTotalMemory(-1);
-                } else {
-                    serverSpec.setTotalMemory(Integer.parseInt(tokens[4]));
-                }
+                count++;
 
-                if (tokens[5].equals("[Not Supported]")) {
-                    serverSpec.setUsedMemory(-1);
-                } else {
-                    serverSpec.setUsedMemory(Integer.parseInt(tokens[5]));
-                }
-
-                serverSpec.setFreeMemory(serverSpec.getTotalMemory() - serverSpec.getUsedMemory());
-
-                if (tokens[6].equals("[Not Supported]")) {
-                    serverSpec.setPowerDraw(-1);
-                } else {
-                    serverSpec.setPowerDraw(Double.parseDouble(tokens[6]));
-                }
-
-                if (tokens[7].equals("[Not Supported]")) {
-                    serverSpec.setPowerLimit(-1);
-                } else {
-                    serverSpec.setPowerLimit(Double.parseDouble(tokens[7]));
-                }
-
-                if (tokens[8].equals("[Not Supported]")) {
-                    serverSpec.setFanSpeed(-1);
-                } else {
-                    serverSpec.setFanSpeed(Integer.parseInt(tokens[8]));
-                }
-
-                serversSpecList.add(serverSpec);
             }
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
         try {
             // 자식 프로세스가 종료 될때까지 대기
             process.waitFor();
@@ -103,54 +93,137 @@ public class ServerInfoProcessBuilder {
             throw new RuntimeException(e);
         }
 
-        for (ServersSpec serversSpec : serversSpecList){
-            System.out.println(serversSpec);
-        }
-
-
-        return serversSpecList;
+        return servers;
     }
 
-    private ServersSpec CPUInfo(){
-        ServersSpec serverSpec = new ServersSpec();
+    public ServersSpec getServerSpec() {
+
+        // GPU 정보 가져오기
+        ProcessBuilder processBuilder = new ProcessBuilder(gpuSpecCommand);
+
+        Process process = null;
+
+        try {
+            // processBuilder 참조
+            process = processBuilder.start();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+
+            String line;
+            int count = 0;
+
+            serversSpec = cpuAndMemorySpec();
+
+            while ((line = reader.readLine()) != null) {
+
+                String[] tokens = line.split(", ");
+
+                if (count == 0){
+                    serversSpec.setTemperatureGPU1(Integer.parseInt(tokens[0]));
+                    serversSpec.setGpu1FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu1UsedMemory(Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu1PowerDraw(Double.parseDouble(tokens[3]));
+                    serversSpec.setGpu1FanSpeed(Integer.parseInt(tokens[4]));
+                    serversSpec.setUtilizationGPU1(Integer.parseInt(tokens[5]));
+                    serversSpec.setUtilizationMemory1(Integer.parseInt(tokens[6]));
+                } else if (count == 1){
+                    serversSpec.setTemperatureGPU2(Integer.parseInt(tokens[0]));
+                    serversSpec.setGpu2FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu2UsedMemory(Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu2PowerDraw(Double.parseDouble(tokens[3]));
+                    serversSpec.setGpu2FanSpeed(Integer.parseInt(tokens[4]));
+                    serversSpec.setUtilizationGPU2(Integer.parseInt(tokens[5]));
+                    serversSpec.setUtilizationMemory2(Integer.parseInt(tokens[6]));
+                } else if (count == 2){
+                    serversSpec.setTemperatureGPU3(Integer.parseInt(tokens[0]));
+                    serversSpec.setGpu3FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu3UsedMemory(Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu3PowerDraw(Double.parseDouble(tokens[3]));
+                    serversSpec.setGpu3FanSpeed(Integer.parseInt(tokens[4]));
+                    serversSpec.setUtilizationGPU3(Integer.parseInt(tokens[5]));
+                    serversSpec.setUtilizationMemory3(Integer.parseInt(tokens[6]));
+                } else if (count == 3){
+                    serversSpec.setTemperatureGPU4(Integer.parseInt(tokens[0]));
+                    serversSpec.setGpu4FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu4UsedMemory(Integer.parseInt(tokens[2]));
+                    serversSpec.setGpu4PowerDraw(Double.parseDouble(tokens[3]));
+                    serversSpec.setGpu4FanSpeed(Integer.parseInt(tokens[4]));
+                    serversSpec.setUtilizationGPU4(Integer.parseInt(tokens[5]));
+                    serversSpec.setUtilizationMemory4(Integer.parseInt(tokens[6]));
+                }
+
+                count++;
+
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        try {
+            // 자식 프로세스가 종료 될때까지 대기
+            process.waitFor();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        return serversSpec;
+    }
+
+    private Servers cpuAndMemoryInfo(){
+        Servers cpuAndMemoryInfo = new Servers();
 
         // CPU & Memory 정보 가져오기
         OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
 
-        // 이전 CPU 시간
-        long prevCpuTime = osBean.getProcessCpuTime();
+        long totalPhysicalMemorySizeBytes = osBean.getTotalPhysicalMemorySize();
+        double totalPhysicalMemorySizeGB =  totalPhysicalMemorySizeBytes / (1024.0 * 1024.0 * 1024.0);
+        cpuAndMemoryInfo.setTotalMemory(String.format("%.2f", totalPhysicalMemorySizeGB));
 
-        // 현재 시간 가져오기 (한국 시간으로 변환)
-        LocalDateTime currentTime = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        // Disk 정보 가져오기
+        double totalSize;
+        File varDirectory = new File("/var");
+        // 총 용량 (바이트 단위)
+        totalSize = varDirectory.getTotalSpace();
+        cpuAndMemoryInfo.setTotalDisk(String.format("%.2f", totalSize / (1024.0 * 1024.0 * 1024.0)));
 
-        // 현재 CPU 시간
-        long currCpuTime = osBean.getProcessCpuTime() - prevCpuTime;
+        return cpuAndMemoryInfo;
+    }
 
-        // CPU 사용량 및 한국 시간 출력
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        String formattedTime = currentTime.format(formatter);
-        System.out.println("시간 : " + formattedTime);
+    private ServersSpec cpuAndMemorySpec() {
+        ServersSpec cpuAndMemorySpec = new ServersSpec();
 
-        // 이전 CPU 시간 업데이트
-        prevCpuTime = currCpuTime;
+        // CPU & Memory 정보 가져오기
+        OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
 
-        serverSpec.setUsageCPU(Double.parseDouble(String.format("%.2f", osBean.getSystemCpuLoad() * 100)));
-        serverSpec.setFreeMemorySize(Double.parseDouble(String.format("%.2f", (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024)));
-        serverSpec.setTotalMemorySize(Double.parseDouble(String.format("%.2f", (double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024)));
-        serverSpec.setUseMemorySize(Double.parseDouble(String.format("%.2f", ((double) osBean.getTotalPhysicalMemorySize() / 1024 / 1024 / 1024) - (double) osBean.getFreePhysicalMemorySize() / 1024 / 1024 / 1024)));
+        long freePhysicalMemorySizeBytes = osBean.getFreePhysicalMemorySize();
+        long totalPhysicalMemorySizeBytes = osBean.getTotalPhysicalMemorySize();
+
+        double freePhysicalMemorySizeGB = freePhysicalMemorySizeBytes / (1024.0 * 1024.0 * 1024.0);
+        double totalPhysicalMemorySizeGB =  totalPhysicalMemorySizeBytes / (1024.0 * 1024.0 * 1024.0);
+        double usedPhysicalMemorySizeGB = totalPhysicalMemorySizeGB - freePhysicalMemorySizeGB;
+
+        cpuAndMemorySpec.setUsedCPU(Double.parseDouble(String.format("%.2f", osBean.getSystemCpuLoad() * 100)));
+        cpuAndMemorySpec.setFreeMemorySize(String.format("%.2f", freePhysicalMemorySizeGB));
+        cpuAndMemorySpec.setUseMemorySize(String.format("%.2f", usedPhysicalMemorySizeGB));
 
         // Disk 정보 가져오기
         double totalSize, freeSize, useSize;
-        File root = new File("C:\\");
+        File varDirectory = new File("/var");
 
-        totalSize = root.getTotalSpace() / Math.pow(1024, 3);
-        useSize = root.getUsableSpace() / Math.pow(1024, 3);
-        freeSize = totalSize - useSize;
+        // 총 용량 (바이트 단위)
+        totalSize = varDirectory.getTotalSpace();
+        // 사용 중인 용량 (바이트 단위)
+        useSize = totalSize - varDirectory.getFreeSpace();
+        // 사용 가능한 용량 (바이트 단위)
+        freeSize = varDirectory.getUsableSpace();
 
-        serverSpec.setTotalDiskSize(totalSize);
-        serverSpec.setUseDiskSize(useSize);
-        serverSpec.setFreeDiskSize(freeSize);
+        cpuAndMemorySpec.setUseDiskSize(String.format("%.2f", useSize / (1024.0 * 1024.0 * 1024.0)));
+        cpuAndMemorySpec.setFreeDiskSize(String.format("%.2f", freeSize / (1024.0 * 1024.0 * 1024.0)));
 
-        return serverSpec;
+        return cpuAndMemorySpec;
     }
 }
