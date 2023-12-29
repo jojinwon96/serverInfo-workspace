@@ -1,28 +1,21 @@
 package kr.smartisoft.demo.ServerInfo.controller;
 
 import kr.smartisoft.demo.ServerInfo.common.ServerInfoProcessBuilder;
+import kr.smartisoft.demo.ServerInfo.common.SeverFileManager;
 import kr.smartisoft.demo.ServerInfo.entity.Servers;
 import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
 import kr.smartisoft.demo.ServerInfo.service.ServerInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.PostConstruct;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.Map;
+
 
 @RestController
-@RequestMapping
+@RequestMapping("/api/server-info")
 public class ServerInfoController {
-
-    @Autowired
-    private Environment environment;
 
     @Autowired
     private ServerInfoProcessBuilder serverInfoProcessBuilder;
@@ -36,23 +29,53 @@ public class ServerInfoController {
     @Autowired
     private ServersSpec serverSpec;
 
+    @Autowired
+    private SeverFileManager severFileManager;
+
+    private static Boolean isRun = false;
+
     /**
-     * 초기 서버 정보 등록
+     * 서버 시작 또는 재시작시
      */
     @PostConstruct
     @Transactional
     private void init() {
+        // 서버 정보(서버이름, 포트, ip) 가져오기
+        servers = severFileManager.readJsonFromFile();
 
-        Map<String, String> portAndAddress = getServerInfo();
+        // 서버 정보(서버이름, 포트, ip)가 있을때만 로직 실행
+        if (servers != null) {
+            Servers dbServerInfo = serverInfoService.getServer(servers.getPort());
 
-        Servers getServer = serverInfoService.getServer(portAndAddress.get("port"));
-
-        if (getServer != null){
-            servers = getServer;
-        } else {
-            saveServerInfo(portAndAddress.get("port"), portAndAddress.get("ipAddress"));
+            // 같은 정보가 DB에도 있다면
+            if (dbServerInfo != null) {
+                servers = dbServerInfo;
+                isRun = true;
+            } else {
+                saveServerInfo(servers);
+            }
         }
 
+    }
+
+    @PostMapping("/save")
+    private Servers save(@RequestBody Servers serverInfo) {
+
+        servers = serverInfoProcessBuilder.getServersInfo();
+        servers.setServerName(serverInfo.getServerName());
+        servers.setIpAddress(serverInfo.getIpAddress());
+        servers.setPort(serverInfo.getPort());
+
+        // Servers 정보를 파일에 저장
+        Servers savedServerInfo = severFileManager.saveToFile(servers);
+
+        // 파일로 저장된 결과 DB에도 적용
+        if (savedServerInfo != null) {
+            saveServerInfo(savedServerInfo);
+        }
+
+        // 저장된 결과
+        return savedServerInfo;
     }
 
     /**
@@ -61,55 +84,17 @@ public class ServerInfoController {
     @Scheduled(fixedRate = 3000)
     @Transactional
     private void saveServerSpec() {
-        saveServerSpecs(servers);
-    }
-
-    private Map<String, String> getServerInfo() {
-        InetAddress localHost = null;
-
-        try {
-            localHost = InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
+        if (isRun) {
+            saveServerSpecs(servers);
         }
-
-        String port = environment.getProperty("server.port");
-        String ipAddress = localHost.getHostAddress();
-
-        Map<String, String> map = new HashMap<>();
-
-        map.put("port", port);
-        map.put("ipAddress", ipAddress);
-
-        return map;
     }
-
-
 
     @Transactional
-    private void saveServerInfo(String port, String ipAddress) {
-
-        servers = serverInfoProcessBuilder.getServersInfo();
-
-        String serverName = "";
-
-        if(port.equals("9030")){
-            serverName = "3번 서버";
-        } else if(port.equals("9040")){
-            serverName = "4번 서버";
-        } else if(port.equals("9050")){
-            serverName = "5번 서버";
-        } else if(port.equals("9060")){
-            serverName = "6번 서버";
-        }
-
-        servers.setServerName(serverName);
-
-        servers.setPort(port);
-        servers.setIpAddress(ipAddress);
-
+    private void saveServerInfo(Servers servers) {
         serverInfoService.saveServerInfo(servers);
         saveServerSpecs(servers);
+
+        isRun = true;
     }
 
     @Transactional
