@@ -85,20 +85,20 @@ public class ServerInfoController {
     @Transactional
     private void saveServerSpec() {
         if (isRun) {
-            saveServerSpecs(servers);
+            saveServerSpec(servers);
         }
     }
 
     @Transactional
     private void saveServerInfo(Servers servers) {
         serverInfoService.saveServerInfo(servers);
-        saveServerSpecs(servers);
+        saveServerSpec(servers);
 
         isRun = true;
     }
 
     @Transactional
-    private void saveServerSpecs(Servers servers) {
+    private void saveServerSpec(Servers servers) {
         serverSpec = serverInfoProcessBuilder.getServerSpec();
 
         // 서버의 gpu 갯수만큼 db에 저장
