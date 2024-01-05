@@ -32,7 +32,7 @@ public class ServerInfoController {
     @Autowired
     private SeverFileManager severFileManager;
 
-    private static Boolean isRun = false;
+    private Boolean isRun = false;
 
     /**
      * 서버 시작 또는 재시작시
@@ -61,6 +61,8 @@ public class ServerInfoController {
     @PostMapping("/save")
     private Servers save(@RequestBody Servers serverInfo) {
 
+        System.out.println("넘어온 값 : " + serverInfo);
+
         servers = serverInfoProcessBuilder.getServersInfo();
         servers.setServerName(serverInfo.getServerName());
         servers.setIpAddress(serverInfo.getIpAddress());
@@ -72,15 +74,16 @@ public class ServerInfoController {
         // 파일로 저장된 결과 DB에도 적용
         if (savedServerInfo != null) {
             saveServerInfo(savedServerInfo);
+            servers = savedServerInfo;
         }
+
+        System.out.println("저장된 값 : " + serverInfo);
 
         // 저장된 결과
         return savedServerInfo;
     }
 
-    /**
-     * 서버 정보 가져오기
-     */
+
     @Scheduled(fixedRate = 3000)
     @Transactional
     private void saveServerSpec() {
@@ -89,6 +92,9 @@ public class ServerInfoController {
         }
     }
 
+    /**
+     * 서버 정보 가져오기
+     */
     @Transactional
     private void saveServerInfo(Servers servers) {
         serverInfoService.saveServerInfo(servers);
@@ -97,6 +103,9 @@ public class ServerInfoController {
         isRun = true;
     }
 
+    /**
+     * 서버 스펙 가져오기
+     */
     @Transactional
     private void saveServerSpec(Servers servers) {
         serverSpec = serverInfoProcessBuilder.getServerSpec();

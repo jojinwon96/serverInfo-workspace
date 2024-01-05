@@ -7,10 +7,7 @@ import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
@@ -35,7 +32,7 @@ public class ServerInfoProcessBuilder {
     @Autowired
     ServersSpec serversSpec;
 
-    public Servers getServersInfo(){
+    public Servers getServersInfo() {
 
         // GPU 정보 가져오기
         ProcessBuilder processBuilder = new ProcessBuilder(gpuInfoCommand);
@@ -60,19 +57,19 @@ public class ServerInfoProcessBuilder {
 
                 String[] tokens = line.split(", ");
 
-                if (count == 0){
+                if (count == 0) {
                     servers.setGpu1Name(tokens[0]);
                     servers.setGpu1TotalMemory(Integer.parseInt(tokens[1]));
                     servers.setGpu1PowerLimit(Double.parseDouble(tokens[2]));
-                } else if (count == 1){
+                } else if (count == 1) {
                     servers.setGpu2Name(tokens[0]);
                     servers.setGpu2TotalMemory(Integer.parseInt(tokens[1]));
                     servers.setGpu2PowerLimit(Double.parseDouble(tokens[2]));
-                } else if (count == 2){
+                } else if (count == 2) {
                     servers.setGpu3Name(tokens[0]);
                     servers.setGpu3TotalMemory(Integer.parseInt(tokens[1]));
                     servers.setGpu3PowerLimit(Double.parseDouble(tokens[2]));
-                } else if (count == 3){
+                } else if (count == 3) {
                     servers.setGpu4Name(tokens[0]);
                     servers.setGpu4TotalMemory(Integer.parseInt(tokens[1]));
                     servers.setGpu4PowerLimit(Double.parseDouble(tokens[2]));
@@ -121,7 +118,7 @@ public class ServerInfoProcessBuilder {
 
                 String[] tokens = line.split(", ");
 
-                if (count == 0){
+                if (count == 0) {
                     serversSpec.setTemperatureGPU1(Integer.parseInt(tokens[0]));
                     serversSpec.setGpu1FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
                     serversSpec.setGpu1UsedMemory(Integer.parseInt(tokens[2]));
@@ -129,7 +126,7 @@ public class ServerInfoProcessBuilder {
                     serversSpec.setGpu1FanSpeed(Integer.parseInt(tokens[4]));
                     serversSpec.setUtilizationGPU1(Integer.parseInt(tokens[5]));
                     serversSpec.setUtilizationMemory1(Integer.parseInt(tokens[6]));
-                } else if (count == 1){
+                } else if (count == 1) {
                     serversSpec.setTemperatureGPU2(Integer.parseInt(tokens[0]));
                     serversSpec.setGpu2FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
                     serversSpec.setGpu2UsedMemory(Integer.parseInt(tokens[2]));
@@ -137,7 +134,7 @@ public class ServerInfoProcessBuilder {
                     serversSpec.setGpu2FanSpeed(Integer.parseInt(tokens[4]));
                     serversSpec.setUtilizationGPU2(Integer.parseInt(tokens[5]));
                     serversSpec.setUtilizationMemory2(Integer.parseInt(tokens[6]));
-                } else if (count == 2){
+                } else if (count == 2) {
                     serversSpec.setTemperatureGPU3(Integer.parseInt(tokens[0]));
                     serversSpec.setGpu3FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
                     serversSpec.setGpu3UsedMemory(Integer.parseInt(tokens[2]));
@@ -145,7 +142,7 @@ public class ServerInfoProcessBuilder {
                     serversSpec.setGpu3FanSpeed(Integer.parseInt(tokens[4]));
                     serversSpec.setUtilizationGPU3(Integer.parseInt(tokens[5]));
                     serversSpec.setUtilizationMemory3(Integer.parseInt(tokens[6]));
-                } else if (count == 3){
+                } else if (count == 3) {
                     serversSpec.setTemperatureGPU4(Integer.parseInt(tokens[0]));
                     serversSpec.setGpu4FreeMemory(Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]));
                     serversSpec.setGpu4UsedMemory(Integer.parseInt(tokens[2]));
@@ -173,15 +170,27 @@ public class ServerInfoProcessBuilder {
         return serversSpec;
     }
 
-    private Servers cpuAndMemoryInfo(){
+    private Servers cpuAndMemoryInfo() {
+
         Servers cpuAndMemoryInfo = new Servers();
 
-        // CPU & Memory 정보 가져오기
-        OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+        try {
+            // "/proc/meminfo" 파일 읽기
+            BufferedReader reader = new BufferedReader(new FileReader("/proc/meminfo"));
 
-        long totalPhysicalMemorySizeBytes = osBean.getTotalPhysicalMemorySize();
-        double totalPhysicalMemorySizeGB =  totalPhysicalMemorySizeBytes / (1024.0 * 1024.0 * 1024.0);
-        cpuAndMemoryInfo.setTotalMemory(String.format("%.2f", totalPhysicalMemorySizeGB));
+            // 파일에서 각 줄을 읽어오기
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // 원하는 정보 추출 (예: 전체 메모리 및 사용 중인 메모리)
+                if (line.startsWith("MemTotal:")) {
+                    cpuAndMemoryInfo.setTotalMemory(String.format("%.2f",parseMemoryValue(line)));
+                }
+            }
+            // 파일 닫기
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         // Disk 정보 가져오기
         double totalSize;
@@ -194,21 +203,33 @@ public class ServerInfoProcessBuilder {
     }
 
     private ServersSpec cpuAndMemorySpec() {
+
         ServersSpec cpuAndMemorySpec = new ServersSpec();
 
-        // CPU & Memory 정보 가져오기
         OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
 
-        long freePhysicalMemorySizeBytes = osBean.getFreePhysicalMemorySize();
-        long totalPhysicalMemorySizeBytes = osBean.getTotalPhysicalMemorySize();
-
-        double freePhysicalMemorySizeGB = freePhysicalMemorySizeBytes / (1024.0 * 1024.0 * 1024.0);
-        double totalPhysicalMemorySizeGB =  totalPhysicalMemorySizeBytes / (1024.0 * 1024.0 * 1024.0);
-        double usedPhysicalMemorySizeGB = totalPhysicalMemorySizeGB - freePhysicalMemorySizeGB;
-
         cpuAndMemorySpec.setUsedCPU(Double.parseDouble(String.format("%.2f", osBean.getSystemCpuLoad() * 100)));
-        cpuAndMemorySpec.setFreeMemorySize(String.format("%.2f", freePhysicalMemorySizeGB));
-        cpuAndMemorySpec.setUseMemorySize(String.format("%.2f", usedPhysicalMemorySizeGB));
+
+        try {
+            // "/proc/meminfo" 파일 읽기
+            BufferedReader reader = new BufferedReader(new FileReader("/proc/meminfo"));
+
+            // 파일에서 각 줄을 읽어오기
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                // 원하는 정보 추출 (예: 전체 메모리 및 사용 중인 메모리)
+                if (line.startsWith("MemFree:")) {
+                    cpuAndMemorySpec.setFreeMemorySize(String.format("%.2f",parseMemoryValue(line)));
+                } else if (line.startsWith("MemAvailable:")) {
+                    cpuAndMemorySpec.setAvaliableSize(String.format("%.2f",parseMemoryValue(line)));
+                }
+            }
+            // 파일 닫기
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         // Disk 정보 가져오기
         double totalSize, freeSize, useSize;
@@ -225,5 +246,15 @@ public class ServerInfoProcessBuilder {
         cpuAndMemorySpec.setFreeDiskSize(String.format("%.2f", freeSize / (1024.0 * 1024.0 * 1024.0)));
 
         return cpuAndMemorySpec;
+    }
+
+    // "/proc/meminfo"에서 메모리 값을 추출하는 함수
+    private Double parseMemoryValue(String line) {
+
+        String[] tokens = line.trim().split("\\s+");
+
+        // 공백으로 나누어 첫 번째 열의 값을 가져옴
+        // 두 번째 열의 값을 가져와서 KB를 MB로 변환
+        return (double) Integer.parseInt(tokens[1]) / (1024 * 1024);
     }
 }

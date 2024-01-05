@@ -46,6 +46,9 @@ public class ServersSpec {
     @Column(name = "used_memory")
     private String useMemorySize; // 사용중인 메모리
 
+    @Column(name = "avaliable_memory")
+    private String avaliableSize;
+
     @Column(name = "gpu1_free_memory")
     private int gpu1FreeMemory; // 사용 가능한 GPU 메모리
 
