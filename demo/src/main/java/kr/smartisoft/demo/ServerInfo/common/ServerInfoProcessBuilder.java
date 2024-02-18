@@ -3,20 +3,11 @@ package kr.smartisoft.demo.ServerInfo.common;
 import com.sun.management.OperatingSystemMXBean;
 import kr.smartisoft.demo.ServerInfo.entity.Servers;
 import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
-import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.lang.management.ManagementFactory;
-import java.nio.file.FileStore;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 

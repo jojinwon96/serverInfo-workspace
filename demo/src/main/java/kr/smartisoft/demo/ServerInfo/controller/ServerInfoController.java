@@ -1,21 +1,22 @@
 package kr.smartisoft.demo.ServerInfo.controller;
 
+import kr.smartisoft.demo.ServerInfo.common.DynamicChangeScheduler;
 import kr.smartisoft.demo.ServerInfo.common.ServerInfoProcessBuilder;
 import kr.smartisoft.demo.ServerInfo.common.SeverFileManager;
 import kr.smartisoft.demo.ServerInfo.entity.Servers;
-import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
 import kr.smartisoft.demo.ServerInfo.service.ServerInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import javax.annotation.PostConstruct;
 
 
 @RestController
 @RequestMapping("/api/server-info")
 public class ServerInfoController {
+
+    @Autowired
+    DynamicChangeScheduler dynamicChangeScheduler;
 
     @Autowired
     private ServerInfoProcessBuilder serverInfoProcessBuilder;
@@ -24,46 +25,16 @@ public class ServerInfoController {
     private ServerInfoService serverInfoService;
 
     @Autowired
-    private Servers servers;
-
-    @Autowired
-    private ServersSpec serverSpec;
-
-    @Autowired
     private SeverFileManager severFileManager;
 
     private Boolean isRun = false;
-
-    /**
-     * 서버 시작 또는 재시작시
-     */
-    @PostConstruct
-    @Transactional
-    private void init() {
-        // 서버 정보(서버이름, 포트, ip) 가져오기
-        servers = severFileManager.readJsonFromFile();
-
-        // 서버 정보(서버이름, 포트, ip)가 있을때만 로직 실행
-        if (servers != null) {
-            Servers dbServerInfo = serverInfoService.getServer(servers.getPort());
-
-            // 같은 정보가 DB에도 있다면
-            if (dbServerInfo != null) {
-                servers = dbServerInfo;
-                isRun = true;
-            } else {
-                saveServerInfo(servers);
-            }
-        }
-
-    }
 
     @PostMapping("/save")
     private Servers save(@RequestBody Servers serverInfo) {
 
         System.out.println("넘어온 값 : " + serverInfo);
 
-        servers = serverInfoProcessBuilder.getServersInfo();
+        Servers servers = serverInfoProcessBuilder.getServersInfo();
         servers.setServerName(serverInfo.getServerName());
         servers.setIpAddress(serverInfo.getIpAddress());
         servers.setPort(serverInfo.getPort());
@@ -73,8 +44,7 @@ public class ServerInfoController {
 
         // 파일로 저장된 결과 DB에도 적용
         if (savedServerInfo != null) {
-            saveServerInfo(savedServerInfo);
-            servers = savedServerInfo;
+            serverInfoService.saveServerInfo(savedServerInfo);
         }
 
         System.out.println("저장된 값 : " + serverInfo);
@@ -83,39 +53,12 @@ public class ServerInfoController {
         return savedServerInfo;
     }
 
-
-    @Scheduled(fixedRate = 3000)
-    @Transactional
-    private void saveServerSpec() {
-        if (isRun) {
-            saveServerSpec(servers);
-        }
+    @PostMapping("/change-cron")
+    private ResponseEntity changeCron(@RequestBody int cron) throws InterruptedException {
+        dynamicChangeScheduler.stopScheduler();
+        Thread.sleep(1000);
+        dynamicChangeScheduler.startScheduler();
+        return new ResponseEntity("주기 설정 완료", HttpStatus.OK);
     }
-
-    /**
-     * 서버 정보 가져오기
-     */
-    @Transactional
-    private void saveServerInfo(Servers servers) {
-        serverInfoService.saveServerInfo(servers);
-        saveServerSpec(servers);
-
-        isRun = true;
-    }
-
-    /**
-     * 서버 스펙 가져오기
-     */
-    @Transactional
-    private void saveServerSpec(Servers servers) {
-        serverSpec = serverInfoProcessBuilder.getServerSpec();
-
-        // 서버의 gpu 갯수만큼 db에 저장
-        serverSpec.setServers(servers);
-
-        serverInfoService.saveServersSpec(serverSpec);
-
-    }
-
 
 }
