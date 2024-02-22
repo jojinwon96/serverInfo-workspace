@@ -15,7 +15,7 @@ import javax.annotation.PreDestroy;
 public class DynamicChangeScheduler {
     private ThreadPoolTaskScheduler scheduler;
 
-    private String cron = "*/4 * * * * *";
+    private String cron = "*/5 * * * * *";
 
     @Autowired
     private GeneralSettingsService generalSettingsService;

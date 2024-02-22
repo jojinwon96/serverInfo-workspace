@@ -30,6 +30,7 @@ public class ServerInfoService {
     private Boolean isRun = false;
 
     public void init() {
+        System.out.println("start schedule");
         SeverFileManager severFileManager = new SeverFileManager();
 
         // 서버 정보(서버이름, 포트, ip) 가져오기

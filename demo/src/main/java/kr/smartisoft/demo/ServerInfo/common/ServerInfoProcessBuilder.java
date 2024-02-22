@@ -5,13 +5,14 @@ import kr.smartisoft.demo.ServerInfo.entity.Servers;
 import kr.smartisoft.demo.ServerInfo.entity.ServersSpec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.List;
 
-@Component
+@Service
 public class ServerInfoProcessBuilder {
 
     private static final List<String> gpuInfoCommand = Arrays.asList("nvidia-smi", "--query-gpu=gpu_name,memory.total,power.limit", "--format=csv,noheader,nounits");

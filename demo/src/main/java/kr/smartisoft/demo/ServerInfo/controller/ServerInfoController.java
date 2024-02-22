@@ -27,38 +27,44 @@ public class ServerInfoController {
     @Autowired
     private SeverFileManager severFileManager;
 
-    private Boolean isRun = false;
-
     @PostMapping("/save")
-    private Servers save(@RequestBody Servers serverInfo) {
+    private String save(@RequestBody Servers serverInfo) {
 
-        System.out.println("넘어온 값 : " + serverInfo);
+        System.out.println("req server info : " + serverInfo);
 
-        Servers servers = serverInfoProcessBuilder.getServersInfo();
-        servers.setServerName(serverInfo.getServerName());
-        servers.setIpAddress(serverInfo.getIpAddress());
-        servers.setPort(serverInfo.getPort());
+        Servers getServer = serverInfoService.getServer(serverInfo.getPort());
 
-        // Servers 정보를 파일에 저장
-        Servers savedServerInfo = severFileManager.saveToFile(servers);
+        if (getServer != null){
+            return "already saved server info";
+        } else {
+            Servers servers = serverInfoProcessBuilder.getServersInfo();
+            servers.setServerName(serverInfo.getServerName());
+            servers.setIpAddress(serverInfo.getIpAddress());
+            servers.setPort(serverInfo.getPort());
 
-        // 파일로 저장된 결과 DB에도 적용
-        if (savedServerInfo != null) {
-            serverInfoService.saveServerInfo(savedServerInfo);
+            // Servers 정보를 파일에 저장
+            Servers savedServerInfo = severFileManager.saveToFile(servers);
+
+            // 파일로 저장된 결과 DB에도 적용
+            if (savedServerInfo != null) {
+                serverInfoService.saveServerInfo(savedServerInfo);
+            }
+
+            System.out.println("saved server info : " + serverInfo);
+
+            // 저장된 결과
+            return "saved server";
         }
 
-        System.out.println("저장된 값 : " + serverInfo);
-
-        // 저장된 결과
-        return savedServerInfo;
     }
 
     @PostMapping("/change-cron")
     private ResponseEntity changeCron(@RequestBody int cron) throws InterruptedException {
+        System.out.println("cron : " + cron);
         dynamicChangeScheduler.stopScheduler();
         Thread.sleep(1000);
         dynamicChangeScheduler.startScheduler();
-        return new ResponseEntity("주기 설정 완료", HttpStatus.OK);
+        return new ResponseEntity("success change cron", HttpStatus.OK);
     }
 
 }
