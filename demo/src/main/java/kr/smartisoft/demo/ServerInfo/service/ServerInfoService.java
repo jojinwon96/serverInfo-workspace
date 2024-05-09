@@ -36,6 +36,8 @@ public class ServerInfoService {
         // 서버 정보(서버이름, 포트, ip) 가져오기
         Servers readServer = severFileManager.readJsonFromFile();
 
+        System.out.println("readServer: " + readServer);
+
         // 서버 정보(서버이름, 포트, ip)가 있을때만 로직 실행
         if (readServer != null) {
             Servers dbServerInfo = getServer(readServer.getPort());

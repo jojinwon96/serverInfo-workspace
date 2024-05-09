@@ -9,7 +9,7 @@ import java.io.*;
 @Component
 public class SeverFileManager {
 
-    private static final String FILE_PATH = "/home/server_info/server_info2.json";
+    private static final String FILE_PATH = "/app/server-info/server_info.json";
 
     public Servers saveToFile(Servers servers) {
 
